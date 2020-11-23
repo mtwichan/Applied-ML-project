@@ -1,4 +1,4 @@
-# ENGR 418 Project
+# Applied ML Project
 ## How to Run
 Install Python 3 if you have not already. When you are ready run the following commands in the terminal at the root folder containing the project.
 
