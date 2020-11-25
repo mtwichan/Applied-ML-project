@@ -1,13 +1,11 @@
 import os
-from typing import Union
+from typing import Union, Iterator
 
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 from skimage import feature
 from sklearn.svm import LinearSVC
-from sklearn.metrics import classification_report, accuracy_score, confusion_matrix
-
 
 def generate_hog_features(folder_name: str) -> Union[list, list]:
     print("Generating training set feature vectors ...")
@@ -59,13 +57,13 @@ def generate_svm(x_train: list, y_train: list) -> LinearSVC:
     return svm_model
 
 
-def sliding_window(image, step_sz, window_sz):
+def sliding_window(image: np.ndarray, step_sz: int, window_sz: tuple) -> Iterator[tuple]:
     for y in range(0, image.shape[0], step_sz):
         for x in range(0, image.shape[1], step_sz):
             yield (x, y, image[y : y + window_sz[1], x : x + window_sz[0]])
 
 
-def pyramid(image, scale=2.5, minSize=(5, 5)):
+def pyramid(image: np.ndarray, scale=2.5, minSize=(5, 5)) -> Iterator[np.ndarray]:
     yield image
 
     while True:
@@ -82,7 +80,7 @@ def pyramid(image, scale=2.5, minSize=(5, 5)):
         yield image
 
 
-def test_set_algo(image, svm_model, step_sz=8, window_sz=(100, 100)):
+def test_set_algo(image: np.ndarray, svm_model: LinearSVC, step_sz=8, window_sz=(100, 100)) -> Union[str, np.ndarray, np.ndarray]:
     x_test = []
     y_test = []
     image_meta = []
