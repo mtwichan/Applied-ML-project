@@ -2,11 +2,14 @@ import os
 from typing import Union, Iterator
 
 import cv2
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+import plotly.express as px
 from skimage import feature
 from sklearn.svm import LinearSVC
+from sklearn.metrics import confusion_matrix, accuracy_score, classification_report
 
+# Create HoG Features
 def generate_hog_features(folder_name: str) -> Union[list, list]:
     print("Generating training set feature vectors ...")
 
@@ -29,8 +32,13 @@ def generate_hog_features(folder_name: str) -> Union[list, list]:
             # Get image
             image_path = f"{main_path}/{image}"
 
-            # Read image and resize to 64 x 128 - HoGs requires 1:2 ratio
+            # Read image
             image = cv2.imread(image_path)
+
+            # Apply Gaussian Blur
+            image = cv2.GaussianBlur(image, (5, 5), cv2.BORDER_DEFAULT)
+
+            # Resize to 64 x 128 - HoGs requires 1:2 ratio
             image = cv2.resize(image, (64, 128))
 
             # Calculate HOG descriptor for each image
@@ -47,22 +55,31 @@ def generate_hog_features(folder_name: str) -> Union[list, list]:
             x_train.append(hog_desc)
             y_train.append(path)
 
+    print("Finished generating training set feature vectors ...")
     return x_train, y_train
 
 
+# Create the SVM model
 def generate_svm(x_train: list, y_train: list) -> LinearSVC:
     print("Training SVM model ...")
+
     svm_model = LinearSVC(random_state=42, tol=1e-5)
     svm_model.fit(x_train, y_train)
+
+    print("Finished training SVM model ...")
     return svm_model
 
 
-def sliding_window(image: np.ndarray, step_sz: int, window_sz: tuple) -> Iterator[tuple]:
+# Sliding window for test set
+def sliding_window(
+    image: np.ndarray, step_sz: int, window_sz: tuple
+) -> Iterator[tuple]:
     for y in range(0, image.shape[0], step_sz):
         for x in range(0, image.shape[1], step_sz):
             yield (x, y, image[y : y + window_sz[1], x : x + window_sz[0]])
 
 
+# Perform image pyramid on test set
 def pyramid(image: np.ndarray, scale=2.5, minSize=(5, 5)) -> Iterator[np.ndarray]:
     yield image
 
@@ -80,7 +97,10 @@ def pyramid(image: np.ndarray, scale=2.5, minSize=(5, 5)) -> Iterator[np.ndarray
         yield image
 
 
-def test_set_algo(image: np.ndarray, svm_model: LinearSVC, step_sz=8, window_sz=(100, 100)) -> Union[str, np.ndarray, np.ndarray]:
+# Algo for test set with sliding window
+def test_set_algo(
+    image: np.ndarray, svm_model: LinearSVC, step_sz=8, window_sz=(100, 100)
+) -> Union[str, str, np.ndarray, np.ndarray]:
     x_test = []
     y_test = []
     image_meta = []
@@ -97,6 +117,10 @@ def test_set_algo(image: np.ndarray, svm_model: LinearSVC, step_sz=8, window_sz=
 
             # Resize to HoG size - 1:2 ratio
             window = cv2.resize(window, (64, 128))
+
+            # Apply Gaussian Blur
+            window = cv2.GaussianBlur(window, (5, 5), cv2.BORDER_DEFAULT)
+
             (hog_desc, hog_image) = feature.hog(
                 window,
                 orientations=9,
@@ -121,7 +145,9 @@ def test_set_algo(image: np.ndarray, svm_model: LinearSVC, step_sz=8, window_sz=
     print("Best Decision: ", str(des_max))
 
     des_func_idx = des_func.index(des_max)
-    label = y_test[des_func_idx]
+
+    x_test = x_test[des_func_idx]
+    y_test = y_test[des_func_idx]
 
     # Get best fitting sliding window data
     x, y, hog_image = image_meta[des_func_idx]
@@ -131,15 +157,47 @@ def test_set_algo(image: np.ndarray, svm_model: LinearSVC, step_sz=8, window_sz=
         image, (x, y), (x + win_width, y + win_height), (0, 255, 0), 2
     )
 
-    return label, image, hog_image
+    return x_test, y_test, image, hog_image
 
 
-def run_svm(folder_name: str, svm_model: LinearSVC) -> None:
+# Algo for test set without sliding window
+def test_set_algo_raw(
+    image: np.ndarray, svm_model: LinearSVC
+) -> Union[str, str, np.ndarray, np.ndarray]:
+
+    image = cv2.resize(image, (200, 200))
+
+    # Resize to HoG size - 1:2 ratio
+    image = cv2.resize(image, (64, 128))
+
+    # Apply Gaussian Blur
+    image = cv2.GaussianBlur(image, (5, 5), cv2.BORDER_DEFAULT)
+
+    (hog_desc, hog_image) = feature.hog(
+        image,
+        orientations=9,
+        pixels_per_cell=(8, 8),
+        cells_per_block=(2, 2),
+        block_norm="L2",
+        visualize=True,
+        transform_sqrt=True,
+    )
+
+    x_test = hog_desc.reshape(1, -1)
+    y_test = svm_model.predict(x_test)[0]
+
+    return x_test, y_test, image, hog_image
+
+
+# Run the SVM model
+def run_svm(folder_name: str, svm_model: LinearSVC, window_pyr=True) -> None:
     # Run SVM model on test images
     print("Running SVM model on testing set ...")
 
-    img_path = folder_name
-    img_path = f"test_images/{img_path}"
+    x_test_all = []
+    y_test_all = []
+
+    img_path = f"test_images/{folder_name}"
     img_paths = os.listdir(img_path)
 
     output_path = f"outputs/"
@@ -151,20 +209,27 @@ def run_svm(folder_name: str, svm_model: LinearSVC) -> None:
         image = cv2.imread(img)
 
         # Run HoGs algorithim, sliding window and pyramid
-        label, image, hog_image = test_set_algo(image, svm_model)
+        if window_pyr:
+            x_test, y_test, image, hog_image = test_set_algo(image, svm_model)
+        else:
+            x_test, y_test, image, hog_image = test_set_algo_raw(image, svm_model)
+
+        # Collect all features
+        x_test_all.append(x_test)
+        y_test_all.append(y_test)
 
         # Print predictions
         img_name = img.split("/")[-1][:-4]
 
         print("Actual:", img_name)
-        print("Predicted:", label)
+        print("Predicted:", y_test)
 
         # Rescale HoG image
         hog_image = hog_image.astype("float64")
 
         # Add text to image
         actual_text = f"Actual: {img_name}"
-        predicted_text = f"Predicted: {label}"
+        predicted_text = f"Predicted: {y_test}"
 
         cv2.putText(
             image,
@@ -182,19 +247,62 @@ def run_svm(folder_name: str, svm_model: LinearSVC) -> None:
         # Write output images to output folder
         cv2.imwrite(f"{output_path}hog_{i}.jpg", hog_image * 255.0)
         cv2.imwrite(f"{output_path}pred_{i}.jpg", image)
+    print("Finished!")
+    return x_test_all, y_test_all
 
-    return
+
+# Create confusion matrix
+def generate_cfn_mtx(y_true: list, y_pred: list, title: "str", labels: list) -> None:
+    class_names = ["Negative", "Positive"]
+    graph_text = [["TN", "FP"], ["FN", "TP"]]
+
+    # Calculate confusion matrix
+    cm = confusion_matrix(y_true, y_pred, labels=labels)
+
+    # Plot
+    plt.clf()
+    plt.imshow(cm, interpolation="nearest", cmap=plt.cm.summer)
+
+    plt.title(f"SVM Confusion Matrix - {title}")
+    plt.ylabel("True")
+    plt.xlabel("Predicted")
+
+    # Ticks
+    tick_marks = np.arange(len(class_names))
+    plt.xticks(tick_marks, class_names)
+    plt.yticks(tick_marks, class_names)
+
+    for i in range(2):
+        for j in range(2):
+            plt.text(j, i, str(graph_text[i][j]) + " = " + str(cm[i][j]))
+    plt.show()
+
+
+# Print model accuracy and classification
+def view_model_acc(y_true: list, y_pred: list) -> None:
+    # Accuracy of Model
+    acc = accuracy_score(y_true, y_pred)
+    print(f"\nModel Accuracy: {acc}\n")
+
+    # Classification Report
+    print(
+        "\nClassification Report: \n",
+        classification_report(y_true, y_pred),
+    )
 
 
 if __name__ == "__main__":
-    # Point to folder
-    folder_name = "shapes"
+    # Folder name of training data in "inputs" folder
+    train_folder = "shapes"
 
-    # Get x and y test feature data
-    x_train, y_train = generate_hog_features(folder_name)
+    # Folder name of testing data in "test_images"
+    test_folder = "test_cfn"
 
-    # Create SVM and train data
+    # Get feature vectors
+    x_train, y_train = generate_hog_features(train_folder)
+
+    # Train SVM model
     svm_model = generate_svm(x_train, y_train)
 
-    # Run testing set
-    run_svm(folder_name, svm_model)
+    # Run SVM over test dataset
+    x_test, y_test = run_svm(test_folder, svm_model)
