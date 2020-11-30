@@ -15,9 +15,12 @@ The result of our classifier yielded a 91% success rate. We noticed that the cla
 
 Example histogram of gradients, prediction label, actual label, and bounding box selected by the algorithim:
 
-![hog_6](https://user-images.githubusercontent.com/33464965/100676611-1936f680-331e-11eb-8043-6a9292a0523b.jpg)
+![hog_5](https://user-images.githubusercontent.com/33464965/100677743-85b2f500-3320-11eb-8b8a-89bde1230b9d.jpg)
+![hog_6](https://user-images.githubusercontent.com/33464965/100677839-ba26b100-3320-11eb-8217-441df5fef3e6.jpg)
+![hog_0](https://user-images.githubusercontent.com/33464965/100677718-77fd6f80-3320-11eb-9623-31aa75664f6d.jpg)
+![pred_5](https://user-images.githubusercontent.com/33464965/100677731-8055aa80-3320-11eb-9f54-f00ede28b407.jpg)
 ![pred_6](https://user-images.githubusercontent.com/33464965/100676618-1b995080-331e-11eb-85ee-04478f78ecbb.jpg)
-
+![pred_2](https://user-images.githubusercontent.com/33464965/100677704-73d15200-3320-11eb-8c2d-4461c968f411.jpg)
 
 ## How to Run
 Install Python 3 if you have not already (https://www.python.org/downloads/). 
