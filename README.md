@@ -11,7 +11,7 @@ Examples of our test data set taken from (https://data.mendeley.com/datasets/wzr
 
 Since the square we were trying to classifiy varied in shape, location, and rotation we had to incorporate additonal techniques such as a sliding window and the image pyramid in order for our histogram of gradient algorithim to correctly extract the feature vectors from the image. 
 
-The result of our classifier yielded a 91% success rate. We noticed that the classifer failed to classifiy very small squares correctly. This is due to the image pyramid scaling down the image (zooming out) which works to fit squares that are larger than the sliding window, but not smaller squares. In order to correct this we would need to introduce an image pyramid that also scales the image up, such that smaller squares fill up a larger port of the sliding window, and more features are extracted.
+The result of our classifier yielded a 91% success rate. We noticed that the classifer failed to classifiy very small squares correctly. This is due to the image pyramid scaling down the image (zooming out) which works to fit squares that are larger than the sliding window, but not smaller squares. In order to correct this we would need to introduce an image pyramid that also scales the image up, such that smaller squares fill up a larger portion of the sliding window, and more features are extracted.
 
 Example histogram of gradients, prediction label, actual label, and bounding box selected by the algorithim:
 
